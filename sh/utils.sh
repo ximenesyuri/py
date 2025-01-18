@@ -1,35 +1,3 @@
-function opt_ {
-    local var=$1
-    shift
-    declare -A opts=("$@")
-    
-    for label in "${!opts[@]}"; do
-        local values=${opts[$label]}
-        for value in $values; do
-            if [[ "$var" == "$value" ]]; then
-                echo "$label"
-                return
-            fi
-        done
-    done
-}
-
-function flag_ {
-    local var=$1
-    shift
-    declare -A flags=("$@")
-    
-    for label in "${!flags[@]}"; do
-        local values=${flags[$label]}
-        for value in $values; do
-            if [[ "$var" == "$value" ]]; then
-                echo "$label"
-                return
-            fi
-        done
-    done
-}
-
 pyproject_() {
         echo "
 [project]
