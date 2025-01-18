@@ -1,0 +1,57 @@
+_py_completion() {
+    local cur prev words cword
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    words=("${COMP_WORDS[@]}")
+    cword="${COMP_CWORD}"
+
+    local commands="init reinit registry add install remove shell exec delete"
+    local registry_cmds="l ls list n new r rm remove"
+    local short_opts="-f -t"
+    local long_opts="--from --to"
+
+    case "${prev}" in
+        py)
+            COMPREPLY=($(compgen -W "${commands}" -- "${cur}"))
+            return
+            ;;
+        registry)
+            COMPREPLY=($(compgen -W "${registry_cmds}" -- "${cur}"))
+            return
+            ;;
+        add|install|remove|exec|delete)
+            if [[ ${cur} == -* ]]; then
+                COMPREPLY=($(compgen -W "${short_opts}" -- "${cur}"))
+            else
+                COMPREPLY=($(compgen -f -- "${cur}"))
+            fi
+            return
+            ;;
+        -f|--from|-t|--to)
+            COMPREPLY=($(compgen -W "$(ls requirements* 2>/dev/null | sed 's/requirements\.//g; s/\.txt//g')" -- "${cur}"))
+            return
+            ;;
+    esac
+
+    case "${cword}" in
+        2)
+            case "${words[1]}" in
+                init|reinit|shell|delete)
+                    COMPREPLY=($(compgen -W "$(ls requirements* 2>/dev/null | sed 's/requirements\.//g; s/\.txt//g')" -- "${cur}"))
+                    return
+                    ;;
+                registry)
+                    COMPREPLY=($(compgen -W "${registry_cmds}" -- "${cur}"))
+                    return
+                    ;;
+                add|install|remove|exec)
+                    COMPREPLY=($(compgen -f -- "${cur}"))
+                    return
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+complete -F _py_completion py
+
