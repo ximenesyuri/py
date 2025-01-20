@@ -1,4 +1,4 @@
-function reinit(){
+function reinit_(){
     local env=${1:-}
     local venv=".venv${env:+.${env}}"
     if $(find_ dir $venv); then

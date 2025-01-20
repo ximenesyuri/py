@@ -13,7 +13,7 @@ py() {
     )
 
     declare -A OPTS=(
-        [help]="--help -h"
+        [help]="h --help"
         [init]="I"
         [reinit]="R"
         [registry]=""
@@ -27,22 +27,29 @@ py() {
     )
 
     declare -A FLAGS=(
-        [--recursive]="-R"
-        [--from]="-f"
-        [--to]="-t"
-        [--registry]="-r --reg"
-        [--environment]="-e --env"
+        [--recursive]="-R --rec --recursive"
+        [--from]="-f --from"
+        [--to]="-t --to"
+        [--registry]="-r --reg --registry"
+        [--env]="-e --environment -v --venv"
+        [--path]="-p --path"
     )
+
+    if [[ -z "$1" ]]; then
+        help_
+        return 0
+    fi
+
     declare -a opt_aliases=()
+    local match_opt=""
     for opt in ${!OPTS[@]}; do
-        local match_opt=""
         opt_aliases="${OPTS[$opt]}"
-        for alias in "${opt_aliases[@]}"; do
+        for alias in ${opt_aliases[@]}; do
             if [[ "$1" == "$alias" ]] ||
                [[ "$1" == "$opt" ]]; then
                 local match_opt="true"
                 source ${BASH_SOURCE%/*}/sh/opts/${opt}.sh
-                eval "\"$opt\" \"${@:2}\""
+                eval "\"${opt}_\" ${@:2}"
                 if [[ ! "$?" == "0" ]]; then
                     return 1
                 fi

@@ -1,4 +1,4 @@
-function registry(){
+function registry_(){
     local action=$1
     shift
     case $action in

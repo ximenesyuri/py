@@ -1,4 +1,4 @@
-function delete(){
+function delete_(){
     local env=$1
     local req_file="requirements${env:+.${env}}.txt"
     local line

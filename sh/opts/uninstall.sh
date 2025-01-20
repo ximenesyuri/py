@@ -1,4 +1,4 @@
-function uninstall(){
+function uninstall_(){
     local packages=()
     local env=""
 

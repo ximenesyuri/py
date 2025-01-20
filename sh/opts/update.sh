@@ -1,36 +1,67 @@
-function update(){
+function update_() {
     local packages=()
     local env=""
     local update_all=false
 
     while [[ $# -gt 0 ]]; do
         case $1 in
-            -f|--from) env="$2"; shift 2;;
-            -R|--recursive) update_all=true; env="$2"; shift 2;;
-            *) packages+=("$1"); shift;;
+            "${FLAGS[--recursive]}")
+                update_all=true
+                shift
+                if [[ $# -gt 0 ]]; then
+                    local arg="$1"
+                    if is_path_ "$arg" && is_txt_ "$arg"; then
+                        local req_file="$arg"
+                        shift
+                    elif has_env_ "$arg"; then
+                        env="$arg"
+                        shift
+                    else
+                        error_ "Argument '$arg' is neither a valid environment nor a .txt file."
+                        return 1
+                    fi
+                fi
+                ;;
+            "${FLAGS[--to]}"|${FLAGS[--env]})
+                env="$2"
+                shift 2
+                ;;
+            *)
+                packages+=("$1")
+                shift
+                ;;
         esac
     done
-
-    local venv=$(venv_ "$env")
-    if [ -z "$venv" ]; then
-        echo "error: '$env' is not initialized."
-        echo "info: initialize it with 'py init $env'"
+ 
+    if [[ -n "$env" ]] && ! has_env_ "$env"; then
+        error_ "The environment '$env' is not initialized."
+        info_  "Try 'py init $env'."
+        return 1
+    elif [[ -z "$env" ]] && ! [[ -d ".venv" ]]; then
+        error_ "The main environment is not initialized."
+        info_  "Try 'py init'."
         return 1
     fi
 
-    source "$venv/bin/activate"
+    [[ -z "$env" ]] && venv=".venv"
 
+    activate_ $env
     if $update_all; then
-        outdated_packages=$(pip list -v --outdated --format=columns | awk 'NR>2 { print $1 }')
-        if [ -z "$outdated_packages" ]; then
-            echo "All packages in env '$env' are up-to-date."
+        if [[ -n "$req_file" ]]; then
+            pip install -r "$req_file"
         else
-            echo "$outdated_packages" | xargs -n1 pip install -v -U
+            outdated_packages=$(pip list --outdated --format=freeze | cut -d '=' -f 1)
+            if [ -z "$outdated_packages" ]; then
+                log_ "Environment '$env' is up-to-date."
+            else
+                log_ "Updating packages in environment '$env':"
+                echo "$outdated_packages" | xargs -n1 pip install -U
+            fi
         fi
     else
         for pkg in "${packages[@]}"; do
-            pip install -v --upgrade "$pkg"
+            pip install --upgrade "$pkg"
         done
     fi
-    deactivate  
+    deactivate
 }

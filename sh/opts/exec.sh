@@ -1,4 +1,4 @@
-function exec(){
+function exec_(){
     local something=$1
     shift
     local env=""
