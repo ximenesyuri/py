@@ -6,6 +6,12 @@
 
 Because direct manipulation of `venvs` and `pip` sucks, but adding a new dependency sucks more.
 
+# Installation
+
+1. Just clone the repository and source the `py` script in your `.bashrc`.
+2. If you want completion, source the `src/completion` script as well.
+3. If you want custom aliases, source `src/alias` too.
+
 # Usage
 
 ```
@@ -36,15 +42,19 @@ FLAGS:
 ```bash
 # initialize an environment
 py init my_env
+
 # add some deps to a requirements file of some environment
 py add my_dep other_dep --to/--env  my_env
+
 # delete some dep from a requirements file
 py del my_dep other_dep --from/--env my_env
 py del my_dep other_dep --path /path/to/some/file.txt
+
 # install packages (similar for uninstall and update packages)
 py ins my_pkg other_pkg --from/--reg my_registry --to/--env my_env 
 py ins --recursive --env some_env
 py ins --recursive --path /path/to/some/file.txt
+
 # execute some file or some command
 py exec /path/to/file.py --from/--env my_env
 py exec some_command --from/--env my_env
