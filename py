@@ -53,6 +53,7 @@ py() {
                 if [[ ! "$?" == "0" ]]; then
                     return 1
                 fi
+                break 2
             fi
         done
     done

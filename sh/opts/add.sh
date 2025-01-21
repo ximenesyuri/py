@@ -6,13 +6,14 @@ function add_(){
     if ! inside_; then
         return 1
     fi
+
     declare -a flag_from=()
     declare -a flag_to=()
     declare -a flag_path=()
     flag_from+=(${FLAGS[--from]})
     flag_from+=(${FLAGS[--registry]})
     flag_to+=(${FLAGS[--to]})
-    flag_env+=(${FLAGS[--env]})
+    flag_to+=(${FLAGS[--env]})
     flag_path+=(${FLAGS[--path]})
 
     while [[ $# -gt 0 ]]; do
