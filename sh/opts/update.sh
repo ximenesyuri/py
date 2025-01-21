@@ -1,67 +1,77 @@
 function update_() {
     local packages=()
     local env=""
-    local update_all=false
+    local path_file=""
+    local recursive=false
+
+    declare -a flag_to=()
+    declare -a flag_path=()
+    flag_to+=(${FLAGS[--to]})
+    flag_to+=(${FLAGS[--env]})
+    flag_path+=(${FLAGS[--path]})
 
     while [[ $# -gt 0 ]]; do
         case $1 in
-            "${FLAGS[--recursive]}")
-                update_all=true
+            -R|--recursive)
+                recursive=true
                 shift
-                if [[ $# -gt 0 ]]; then
-                    local arg="$1"
-                    if is_path_ "$arg" && is_txt_ "$arg"; then
-                        local req_file="$arg"
-                        shift
-                    elif has_env_ "$arg"; then
-                        env="$arg"
-                        shift
-                    else
-                        error_ "Argument '$arg' is neither a valid environment nor a .txt file."
-                        return 1
-                    fi
-                fi
-                ;;
-            "${FLAGS[--to]}"|${FLAGS[--env]})
-                env="$2"
-                shift 2
                 ;;
             *)
-                packages+=("$1")
-                shift
+                if [[ ! $1 == -* ]]; then
+                    packages+=("$1")
+                    shift
+                    continue
+                fi
+                for flag in "${flag_to[@]}"; do
+                    if [[ "$1" == "$flag" ]]; then
+                        env="$2"
+                        shift 2
+                        continue
+                    fi
+                done
+                for flag in "${flag_path[@]}"; do
+                    if [[ "$1" == "$flag" ]]; then
+                        path_file="$2"
+                        shift 2
+                        continue
+                    fi
+                done
                 ;;
         esac
     done
- 
-    if [[ -n "$env" ]] && ! has_env_ "$env"; then
-        error_ "The environment '$env' is not initialized."
-        info_  "Try 'py init $env'."
-        return 1
-    elif [[ -z "$env" ]] && ! [[ -d ".venv" ]]; then
-        error_ "The main environment is not initialized."
-        info_  "Try 'py init'."
+
+    if ! has_venv_ "$env"; then
+        error_ "The environment '$(env_ $env)' was not initialized."
         return 1
     fi
 
-    [[ -z "$env" ]] && venv=".venv"
-
-    activate_ $env
-    if $update_all; then
-        if [[ -n "$req_file" ]]; then
-            pip install -r "$req_file"
-        else
-            outdated_packages=$(pip list --outdated --format=freeze | cut -d '=' -f 1)
-            if [ -z "$outdated_packages" ]; then
-                log_ "Environment '$env' is up-to-date."
+    activate_ "$env"
+    
+    if $recursive; then
+        if [[ -n "$path_file" ]]; then
+            if [[ -f "$path_file" && "$path_file" == *.txt ]]; then
+                pip install --upgrade -r "$path_file"
             else
-                log_ "Updating packages in environment '$env':"
-                echo "$outdated_packages" | xargs -n1 pip install -U
+                error_ "The file '$path_file' does not exist or is not a .txt file."
+            fi
+        else
+            local req_file=$(req_ "$env")
+            if [[ -f "$req_file" ]]; then
+                pip install --upgrade -r "$req_file"
+            else
+                error_ "Requirements file for environment '$env' not found."
             fi
         fi
     else
         for pkg in "${packages[@]}"; do
             pip install --upgrade "$pkg"
+            if [[ $? -eq 0 ]]; then
+                done_ "Package '$pkg' has been updated."
+            else
+                error_ "Failed to update package '$pkg'."
+            fi
         done
     fi
     deactivate
 }
+
