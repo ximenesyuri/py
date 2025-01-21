@@ -30,13 +30,13 @@ build-backend = \"setuptools.build_meta\"
         if [[ -z "$gitignore" ]]; then
             touch .gitignore
         fi
-        for ignore in ${IGNORE[@]}; do
+        for ignore in ${PY_IGNORE[@]}; do
             if ! grep -qx "$ignore" .gitignore; then
                 echo "dist/" >> .gitignore
             fi 
         done
         if ! grep -qx "$ignore" .gitignore; then
-            echo "$venv" >> .gitignore
+            echo "${venv##*/}" >> .gitignore
         fi
         done_ "The environment '$(env_ $envs)' has been initalized."
     fi
