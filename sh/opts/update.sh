@@ -4,46 +4,47 @@ function update_() {
     local path_file=""
     local recursive=false
 
-    declare -a flag_to=()
-    declare -a flag_path=()
-    flag_to+=(${FLAGS[--to]})
-    flag_to+=(${FLAGS[--env]})
-    flag_path+=(${FLAGS[--path]})
-
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            -R|--recursive)
-                recursive=true
-                shift
-                ;;
-            *)
-                if [[ ! $1 == -* ]]; then
-                    packages+=("$1")
-                    shift
-                    continue
-                fi
-                for flag in "${flag_to[@]}"; do
-                    if [[ "$1" == "$flag" ]]; then
-                        env="$2"
-                        shift 2
-                        continue
-                    fi
-                done
-                for flag in "${flag_path[@]}"; do
-                    if [[ "$1" == "$flag" ]]; then
-                        path_file="$2"
-                        shift 2
-                        continue
-                    fi
-                done
-                ;;
-        esac
-    done
-
     if ! has_venv_ "$env"; then
         error_ "The environment '$(env_ $env)' was not initialized."
         return 1
     fi
+
+    declare -a flag_from=() 
+    declare -a flag_rec=()
+    declare -a flag_path=()
+    flag_from+=(${FLAGS[--from]})
+    flag_from+=(${FLAGS[--env]})
+    flag_rec+=(${FLAGS[--recursive]})
+    flag_path+=(${FLAGS[--path]})
+    
+    while [[ $# -gt 0 ]]; do
+        if [[ ! $1 == -* ]]; then
+            packages+=("$1")
+            shift
+            continue
+        fi
+        for flag in "${flag_rec[@]}"; do
+            if [[ "$1" == "$flag" ]]; then
+                recursive="true"
+                shift
+                continue
+            fi
+        done
+        for flag in "${flag_from[@]}"; do
+            if [[ "$1" == "$flag" ]]; then
+                env="$2"
+                shift 2
+                continue
+            fi
+        done 
+        for flag in "${flag_path[@]}"; do
+            if [[ "$1" == "$flag" ]]; then
+                path_file="$2"
+                shift 2
+                continue
+            fi
+        done 
+    done
 
     activate_ "$env"
     
