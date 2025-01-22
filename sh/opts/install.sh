@@ -5,16 +5,27 @@ function install_() {
     local path_file=""
     local recursive=false
 
+    local specified_branch=""
+    local specified_commit=""
+    local specified_version=""
+
     declare -a flag_from=()
     declare -a flag_to=()
     declare -a flag_rec=()
     declare -a flag_path=()
+    declare -a flag_branch=()
+    declare -a flag_commit=()
+    declare -a flag_version=()
+    
     flag_from+=(${FLAGS[--from]})
     flag_from+=(${FLAGS[--registry]})
     flag_to+=(${FLAGS[--to]})
     flag_to+=(${FLAGS[--env]})
     flag_rec+=(${FLAGS[--recursive]})
     flag_path+=(${FLAGS[--path]})
+    flag_branch+=(${FLAGS[--branch]})
+    flag_commit+=(${FLAGS[--commit]})
+    flag_version+=(${FLAGS[--version]})
     
     while [[ $# -gt 0 ]]; do
         if [[ ! $1 == -* ]]; then
@@ -49,7 +60,28 @@ function install_() {
                 shift 2
                 continue
             fi
-        done 
+        done
+        for flag in "${flag_branch[@]}"; do
+            if [[ "$1" == "$flag" ]]; then
+                specified_branch="$2"
+                shift 2
+                continue
+            fi
+        done
+        for flag in "${flag_commit[@]}"; do
+            if [[ "$1" == "$flag" ]]; then
+                specified_commit="$2"
+                shift 2
+                continue
+            fi
+        done
+        for flag in "${flag_version[@]}"; do
+            if [[ "$1" == "$flag" ]]; then
+                specified_version="$2"
+                shift 2
+                continue
+            fi
+        done
     done
 
     if ! has_venv_ "$env"; then
@@ -75,6 +107,31 @@ function install_() {
         fi
     else
         for pkg in "${packages[@]}"; do
+            if [[ "$registry" == "github" ]]; then
+                IFS=':' read -r owner_repo branch commit <<< "${pkg//:/ }"
+                branch="${specified_branch:-$branch}"
+                commit="${specified_commit:-$commit}"
+                branch="${branch:-main}"
+
+                if is_commit_ "$commit"; then
+                    pkg="git+https://github.com/$owner_repo.git@$commit#$branch"
+                else
+                    pkg="git+https://github.com/$owner_repo.git@$branch"
+                fi
+            else
+                local version="${pkg##*:}"
+                if is_version_ "$version"; then
+                    pkg="${pkg%%:*}$specified_version"
+                elif [[ -n "$specified_version" ]]; then
+                    if is_version_ "$specified_version"; then
+                        pkg="${pkg%%:*}$specified_version"
+                    else
+                        error_ "Invalid specified version format: $specified_version"
+                        continue
+                    fi
+                fi
+            fi
+
             pip install "$pkg"
             if [[ $? -eq 0 ]]; then
                 done_ "Package '$pkg' has been installed."

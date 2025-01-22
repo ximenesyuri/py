@@ -33,6 +33,9 @@ py() {
         [--registry]="-r --reg --registry"
         [--env]="-e --environment -v --venv"
         [--path]="-p --path"
+        [--version]="-v --version"
+        [--branch]="-b --branch"
+        [--commit]="-c --commit"
     )
 
     if [[ -z "$1" ]]; then

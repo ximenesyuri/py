@@ -152,3 +152,12 @@ function activate_() {
         return 1
     fi
 }
+
+function is_commit_() {
+    [[ "$1" =~ ^[0-9a-f]{40}$ ]]
+}
+
+function is_version_() {
+    [[ "$1" =~ ^([<=>~^!]*[0-9]+(\.[0-9]+)*(\.[0-9]+)?(\.[0-9]+)?)$ ]]
+}
+
