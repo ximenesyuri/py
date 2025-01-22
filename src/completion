@@ -1,3 +1,5 @@
+#! /bin/bash
+
 _py_completion() {
     local cur prev words cword
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -5,10 +7,9 @@ _py_completion() {
     words=("${COMP_WORDS[@]}")
     cword="${COMP_CWORD}"
 
-    local commands="init reinit registry add install remove shell exec delete"
-    local registry_cmds="l ls list n new r rm remove"
-    local short_opts="-f -t"
-    local long_opts="--from --to"
+    local commands="init reinit registry add install remove shell exec delete updates"
+    local registry_cmds="list new remove"
+    local opts="--from --to --commit --branch --version --env --registry"
 
     case "${prev}" in
         py)
@@ -19,9 +20,9 @@ _py_completion() {
             COMPREPLY=($(compgen -W "${registry_cmds}" -- "${cur}"))
             return
             ;;
-        add|install|remove|exec|delete)
+        add|install|remove|exec|delete|update)
             if [[ ${cur} == -* ]]; then
-                COMPREPLY=($(compgen -W "${short_opts}" -- "${cur}"))
+                COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
             else
                 COMPREPLY=($(compgen -f -- "${cur}"))
             fi
