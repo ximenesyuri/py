@@ -2,7 +2,7 @@ function init_(){
     local env=${1:-}
 
     if ! inside_ > /dev/null 2>&1; then
-        log_ "Initializing application..."
+        log_ "Initializing the application..."
         echo "[project]
 name = \"some_name\"
 version = \"0.0.0\"

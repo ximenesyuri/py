@@ -1,4 +1,8 @@
 function install_() {
+
+    if ! inside_; then
+        return 1
+    fi
     local packages=()
     local registry="pypi"
     local env=""
@@ -90,6 +94,23 @@ function install_() {
     fi
 
     activate_ "$env"
+
+    if [[ "$1" == "." ]]; then
+        root=$(find_ root)
+        log_ "Installing the project in editable mode in env '$(env_ $env)'..."
+        cd $root
+        pip install -e . > /dev/null 2>&1
+        if [[ ! "$?" == "0" ]]; then
+            cd - > /dev/null 2>&1
+            deactivate
+            error_ "Could not install the project in editable mode."
+            return 1
+        fi
+        cd - > /dev/null 2>&1
+        deactivate
+        return 0
+    fi
+
     if $recursive; then
         if [[ -n "$path_file" ]]; then
             if [[ -f "$path_file" && "$path_file" == *.txt ]]; then
