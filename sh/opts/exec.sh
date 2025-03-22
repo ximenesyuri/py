@@ -1,5 +1,5 @@
 function exec_() {
-    local target="$1"
+    local target="$@"
     local env=""
     shift
 
