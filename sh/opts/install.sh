@@ -4,8 +4,8 @@ function install_() {
         return 1
     fi
     local packages=()
-    local registry="pypi"
-    local env=""
+    local registry=""
+    local env="" 
     local path_file=""
     local recursive=false
 
@@ -47,7 +47,7 @@ function install_() {
         deactivate
         return 0
     fi
-    
+     
     while [[ $# -gt 0 ]]; do
         if [[ ! $1 == -* ]]; then
             packages+=("$1")
@@ -129,17 +129,17 @@ function install_() {
         fi
     else
         for pkg in "${packages[@]}"; do
-            if [[ "$registry" == "github" ]]; then
-                IFS=':' read -r owner_repo branch commit <<< "${pkg//:/ }"
-                branch="${specified_branch:-$branch}"
-                commit="${specified_commit:-$commit}"
-                branch="${branch:-main}"
-
-                if is_commit_ "$commit"; then
-                    pkg="git+https://github.com/$owner_repo.git@$commit#$branch"
-                else
-                    pkg="git+https://github.com/$owner_repo.git@$branch"
-                fi
+            local slashes=$(grep -o '/' <<< "$pkg" | wc -l)
+            if [[ "$slashes" -eq 1 ]] && 
+               [[ "$pkg" != "/"* ]] && 
+               [[ "$pkg" != *"/" ]]; then
+                if [[ "$registry" == "github" ]] || [[ -z "$registry" ]]; then
+                    if is_commit_ "$commit"; then
+                        pkg="git+https://github.com/$repo.git@$commit#$branch"
+                    else
+                        pkg="git+https://github.com/$repo.git@$branch"
+                    fi
+                fi         
             else
                 local version="${pkg##*:}"
                 if is_version_ "$version"; then
@@ -153,7 +153,6 @@ function install_() {
                     fi
                 fi
             fi
-
             pip install "$pkg"
             if [[ $? -eq 0 ]]; then
                 done_ "Package '$pkg' has been installed."

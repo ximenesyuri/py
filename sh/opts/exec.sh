@@ -1,5 +1,5 @@
 function exec_() {
-    local target="$@"
+    local target="$1"
     local env=""
     shift
 
@@ -33,11 +33,11 @@ function exec_() {
     fi
 
     activate_ "$env"
-
+              
     if [[ -f "$target" ]]; then
-        python3 "$target"
+        python3 "$target" "$@" 
     else
-        eval "$target"
+        eval "$target" "$@"
     fi
 
     deactivate
