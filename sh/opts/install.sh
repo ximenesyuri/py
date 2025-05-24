@@ -133,6 +133,7 @@ function install_() {
             if [[ "$slashes" -eq 1 ]] && 
                [[ "$pkg" != "/"* ]] && 
                [[ "$pkg" != *"/" ]]; then
+                pkg_info_ $pkg
                 if [[ "$registry" == "github" ]] || [[ -z "$registry" ]]; then
                     if is_commit_ "$commit"; then
                         pkg="git+https://github.com/$repo.git@$commit#$branch"
