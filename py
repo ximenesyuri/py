@@ -10,6 +10,7 @@ py() {
         "*.py[oc]"
         "wheels/"
         "*.egg-info"
+        ".env"
     )
 
     declare -A OPTS=(
@@ -27,10 +28,10 @@ py() {
     )
 
     declare -A FLAGS=(
-        [--recursive]="-R --rec --recursive"
+        [--recursive]="-r --rec --recursive"
         [--from]="-f --from"
         [--to]="-t --to"
-        [--registry]="-r --reg --registry"
+        [--registry]="-R --reg --registry"
         [--env]="-e --environment -v --venv"
         [--path]="-p --path"
         [--version]="-v --version"

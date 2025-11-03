@@ -161,3 +161,9 @@ function is_version_() {
     [[ "$1" =~ ^([<=>~^!]*[0-9]+(\.[0-9]+)*(\.[0-9]+)?(\.[0-9]+)?)$ ]]
 }
 
+function pkg_info_() {
+    IFS=':' read -r repo branch commit <<< "${1//:/ }"
+    branch="${specified_branch:-$branch}"
+    commit="${specified_commit:-$commit}"
+    branch="${branch:-main}"
+}
