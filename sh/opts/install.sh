@@ -8,6 +8,8 @@ function install_() {
     local env="" 
     local path_file=""
     local recursive=false
+    local no_deps=false
+    local protocol="https"
 
     local specified_branch=""
     local specified_commit=""
@@ -20,6 +22,8 @@ function install_() {
     declare -a flag_branch=()
     declare -a flag_commit=()
     declare -a flag_version=()
+    declare -a flag_protocol=()
+    declare -a flag_no_deps=()
     
     flag_from+=(${FLAGS[--from]})
     flag_from+=(${FLAGS[--registry]})
@@ -30,23 +34,8 @@ function install_() {
     flag_branch+=(${FLAGS[--branch]})
     flag_commit+=(${FLAGS[--commit]})
     flag_version+=(${FLAGS[--version]})
-
-    if [[ "$1" == "." ]]; then
-        activate_ "$env"
-        root=$(find_ root)
-        log_ "Installing the project in editable mode in env '$(env_ $env)'..."
-        cd $root
-        pip install -e . > /dev/null 2>&1
-        if [[ ! "$?" == "0" ]]; then
-            cd - > /dev/null 2>&1
-            deactivate
-            error_ "Could not install the project in editable mode."
-            return 1
-        fi
-        cd - > /dev/null 2>&1
-        deactivate
-        return 0
-    fi
+    flag_protocol+=(${FLAGS[--protocol]})
+    flag_no_deps+=(${FLAGS[--no-deps]})
      
     while [[ $# -gt 0 ]]; do
         if [[ ! $1 == -* ]]; then
@@ -64,6 +53,13 @@ function install_() {
         for flag in "${flag_from[@]}"; do
             if [[ "$1" == "$flag" ]]; then
                 registry="$2"
+                shift 2
+                continue
+            fi
+        done
+        for flag in "${flag_protocol[@]}"; do
+            if [[ "$1" == "$flag" ]]; then
+                protocol="$2"
                 shift 2
                 continue
             fi
@@ -103,6 +99,14 @@ function install_() {
                 continue
             fi
         done
+        for flag in "${flag_no_deps[@]}"; do
+            if [[ "$1" == "$flag" ]]; then
+                no_deps=true
+                shift
+                continue
+            fi
+        done
+        shift
     done
 
     if ! has_venv_ "$env"; then
@@ -112,17 +116,139 @@ function install_() {
 
     activate_ "$env"
 
+    # Editable install of current project
+    if [[ ${#packages[@]} -eq 1 && "${packages[0]}" == "." ]]; then
+        root=$(find_ root)
+        log_ "Installing the project in editable mode in env '$(env_ $env)'..."
+        cd "$root"
+        local pip_args=()
+        $no_deps && pip_args+=(--no-deps)
+        pip install -e . "${pip_args[@]}" > /dev/null 2>&1
+        local status=$?
+        cd - > /dev/null 2>&1
+        deactivate
+        if [[ $status -ne 0 ]]; then
+            error_ "Could not install the project in editable mode."
+            return 1
+        fi
+        done_ "Project installed in editable mode."
+        return 0
+    fi
+
+    # Interactive selection if no packages were given and not recursive
+    if ! $recursive && [[ -z "$path_file" ]] && [[ ${#packages[@]} -eq 0 ]]; then
+        if ! command -v fzf >/dev/null 2>&1; then
+            deactivate
+            error_ "'fzf' is required for interactive selection. Please install fzf."
+            return 1
+        fi
+
+        local did_select=false
+
+        # Prefer querying PyPI if no registry or pypi
+        if [[ -z "$registry" || "$registry" == "pypi" ]]; then
+            if command -v curl >/dev/null 2>&1; then
+                local cache_dir cache_file tmp
+                cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/py"
+                mkdir -p "$cache_dir"
+                cache_file="$cache_dir/pypi_index.txt"
+
+                local refresh=false
+                if [[ ! -s "$cache_file" ]]; then
+                    refresh=true
+                elif [[ -n "$(find "$cache_file" -mtime +7 -print -quit 2>/dev/null)" ]]; then
+                    refresh=true
+                fi
+
+                if $refresh; then
+                    info_ "Fetching package index from PyPI (this may take a few seconds)..."
+                    tmp="$cache_file.tmp"
+                    if curl -fsSL https://pypi.org/simple/ \
+                        | sed -n 's|.*<a href="/simple/\([^"/]*\)/".*>\([^<]*\)</a>.*|\2|p' \
+                        | tr '[:upper:]' '[:lower:]' \
+                        | sort -u > "$tmp"; then
+                        mv "$tmp" "$cache_file"
+                    else
+                        rm -f "$tmp" >/dev/null 2>&1
+                    fi
+                fi
+
+                if [[ -s "$cache_file" ]]; then
+                    local selected
+                    selected=$(fzf --multi --prompt "PyPI packages> " < "$cache_file")
+                    if [[ -n "$selected" ]]; then
+                        mapfile -t packages <<< "$selected"
+                        did_select=true
+                    else
+                        info_ "No packages selected."
+                        deactivate
+                        return 0
+                    fi
+                fi
+            else
+                warn_ "curl not found; falling back to local candidates."
+            fi
+        fi
+
+        # Fallback to local pip directory or manual input if PyPI fetch didn't run or failed
+        if ! $did_select; then
+            local root pip_dir candidates
+            root=$(find_ root)
+            if [[ -n "$PY_PIP_DIR" && -d "$PY_PIP_DIR" ]]; then
+                pip_dir="$PY_PIP_DIR"
+            elif [[ -d "$root/pip" ]]; then
+                pip_dir="$root/pip"
+            elif [[ -d "$root/.pip" ]]; then
+                pip_dir="$root/.pip"
+            elif [[ -d "${XDG_CACHE_HOME:-$HOME/.cache}/pip" ]]; then
+                pip_dir="${XDG_CACHE_HOME:-$HOME/.cache}/pip"
+            fi
+
+            if [[ -d "$pip_dir" ]]; then
+                if compgen -G "$pip_dir/*.txt" > /dev/null; then
+                    candidates=$(grep -hE '^[A-Za-z0-9_.-]+' "$pip_dir"/*.txt 2>/dev/null | sed 's/[[:space:]]#.*$//' | sed '/^\s*$/d' | sort -u)
+                elif [[ -d "$pip_dir/wheels" ]]; then
+                    candidates=$(find "$pip_dir/wheels" -type f -name "*.whl" -printf "%f\n" 2>/dev/null | sed 's/-[0-9].*$//' | tr '_' '-' | sort -u)
+                fi
+            fi
+
+            if [[ -z "$candidates" ]]; then
+                info_ "No candidates found locally. Type packages (space-separated), or leave empty to cancel."
+                read -r -p "> " typed_pkgs
+                if [[ -z "$typed_pkgs" ]]; then
+                    info_ "No packages selected."
+                    deactivate
+                    return 0
+                fi
+                read -r -a packages <<< "$typed_pkgs"
+            else
+                local selected
+                selected=$(printf "%s\n" "$candidates" | fzf --multi)
+                if [[ -z "$selected" ]]; then
+                    info_ "No packages selected."
+                    deactivate
+                    return 0
+                fi
+                mapfile -t packages <<< "$selected"
+            fi
+        fi
+    fi
+
     if $recursive; then
         if [[ -n "$path_file" ]]; then
             if [[ -f "$path_file" && "$path_file" == *.txt ]]; then
-                pip install -r "$path_file"
+                local pip_args=()
+                $no_deps && pip_args+=(--no-deps)
+                pip install "${pip_args[@]}" -r "$path_file"
             else
                 error_ "The file '$path_file' does not exist or is not a .txt file."
             fi
         else
             local req_file=$(req_ "$env")
             if [[ -f "$req_file" ]]; then
-                pip install -r "$req_file"
+                local pip_args=()
+                $no_deps && pip_args+=(--no-deps)
+                pip install "${pip_args[@]}" -r "$req_file"
             else
                 error_ "Requirements file for environment '$env' not found."
             fi
@@ -134,7 +260,20 @@ function install_() {
                [[ "$pkg" != "/"* ]] && 
                [[ "$pkg" != *"/" ]]; then
                 pkg_info_ $pkg
-                if [[ "$registry" == "github" ]] || [[ -z "$registry" ]]; then
+                if [[ "$registry" == "github" ]]; then
+                    local base=""
+                    if [[ "$protocol" == "ssh" ]]; then
+                        base="git+ssh://git@github.com/${repo}.git"
+                    else
+                        base="git+https://github.com/${repo}.git"
+                    fi
+                    if is_commit_ "$commit"; then
+                        pkg="${base}@${commit}#${branch}"
+                    else
+                        pkg="${base}@${branch}"
+                    fi
+                elif [[ -z "$registry" ]]; then
+                    # Default to GitHub over HTTPS if user gave owner/repo without --from
                     if is_commit_ "$commit"; then
                         pkg="git+https://github.com/$repo.git@$commit#$branch"
                     else
@@ -154,7 +293,9 @@ function install_() {
                     fi
                 fi
             fi
-            pip install "$pkg"
+            local pip_args=()
+            $no_deps && pip_args+=(--no-deps)
+            pip install "${pip_args[@]}" "$pkg"
             if [[ $? -eq 0 ]]; then
                 done_ "Package '$pkg' has been installed."
             else
@@ -164,3 +305,4 @@ function install_() {
     fi
     deactivate
 }
+

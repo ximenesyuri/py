@@ -19,12 +19,17 @@ py() {
         [reinit]="R"
         [registry]=""
         [add]="a"
-        [delete]="d del"
-        [install]="i ins"
-        [uninstall]="u uns"
+        [remove]="rm"
+        [install]="i"
+        [uninstall]="u"
         [update]="U up"
-        [shell]="s sh act activate"
-        [exec]="x execute run"
+        [shell]="sh activate"
+        [exec]="x run"
+        [dot]="."
+        [list]="ls"
+        [version]="v"
+        [build]="b"
+        [push]="publish p"
     )
 
     declare -A FLAGS=(
@@ -37,6 +42,8 @@ py() {
         [--version]="-v --version"
         [--branch]="-b --branch"
         [--commit]="-c --commit"
+        [--protocol]="--protocol"
+        [--no-deps]="--no-deps"
     )
 
     if [[ -z "$1" ]]; then
@@ -66,4 +73,7 @@ py() {
         return 1
     fi    
 }
+
+source ${BASH_SOURCE%/*}/src/completion
+source ${BASH_SOURCE%/*}/src/aliases
 

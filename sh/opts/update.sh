@@ -4,11 +4,6 @@ function update_() {
     local path_file=""
     local recursive=false
 
-    if ! has_venv_ "$env"; then
-        error_ "The environment '$(env_ $env)' was not initialized."
-        return 1
-    fi
-
     declare -a flag_from=() 
     declare -a flag_rec=()
     declare -a flag_path=()
@@ -46,6 +41,11 @@ function update_() {
         done 
     done
 
+    if ! has_venv_ "$env"; then
+        error_ "The environment '$(env_ $env)' was not initialized."
+        return 1
+    fi
+
     activate_ "$env"
     
     if $recursive; then
@@ -64,12 +64,66 @@ function update_() {
             fi
         fi
     else
+        local root
+        root=$(find_ root)
+        local pyproject="$root/pyproject.toml"
+        
         for pkg in "${packages[@]}"; do
-            pip install --upgrade "$pkg"
-            if [[ $? -eq 0 ]]; then
-                done_ "Package '$pkg' has been updated."
+            local is_git_dep=false
+            local git_spec=""
+            
+            if [[ -f "$pyproject" ]]; then
+                git_spec=$(awk -v pkg="$pkg" '
+                BEGIN { in_deps = 0 }
+                /^[[:space:]]*dependencies[[:space:]]*=[[:space:]]*\[/ { 
+                    in_deps = 1
+                    next 
+                }
+                in_deps && /\]/ { exit }
+                in_deps && /^[[:space:]]*".*"[[:space:]]*(,)?$/ {
+                    line = $0
+                    gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+                    gsub(/^"|"$/, "", line)
+                    gsub(/,$/, "", line)
+                    
+                    # Extract package name
+                    pkg_name = line
+                    gsub(/[<>=! @].*$/, "", pkg_name)
+                    gsub(/^git\+/, "", pkg_name)
+                    
+                    if (pkg_name == pkg) {
+                        # Check if this is a git dependency (contains @ or git+)
+                        if (line ~ /[ @]/ && line ~ /git\+/) {
+                            print line
+                            exit
+                        }
+                    }
+                }
+                ' "$pyproject")
+                
+                if [[ -n "$git_spec" ]]; then
+                    is_git_dep=true
+                fi
+            fi
+            
+            if [[ "$is_git_dep" == true ]]; then
+                log_ "Updating git dependency '$pkg'..."
+                pip uninstall -y "$pkg" >/dev/null 2>&1
+                local clean_git_spec
+                clean_git_spec=$(echo "$git_spec" | sed 's/"$//' | sed 's/^"//')
+                pip install --no-deps "$clean_git_spec"
+                if [[ $? -eq 0 ]]; then
+                    done_ "Git dependency '$pkg' has been updated."
+                else
+                    error_ "Failed to update git dependency '$pkg'."
+                fi
             else
-                error_ "Failed to update package '$pkg'."
+                pip install --upgrade "$pkg"
+                if [[ $? -eq 0 ]]; then
+                    done_ "Package '$pkg' has been updated."
+                else
+                    error_ "Failed to update package '$pkg'."
+                fi
             fi
         done
     fi

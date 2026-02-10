@@ -7,29 +7,201 @@ _py_completion() {
     words=("${COMP_WORDS[@]}")
     cword="${COMP_CWORD}"
 
-    local commands="init reinit registry add install remove shell exec delete updates"
+    if [[ "$COMP_CWORD" -eq 2 ]]; then
+        case "${COMP_WORDS[1]}" in
+            update|U|up|remove|rm)
+                local names
+                names="$(_py_dep_names)"
+                COMPREPLY=($(compgen -W "${names}" -- "${cur}"))
+                return
+                ;;
+        esac
+    fi
+
+    if [[ "$COMP_CWORD" -eq 2 && "${COMP_WORDS[1]}" == "." ]]; then
+        local names
+        names="$(_py_installed_packages)"
+        COMPREPLY=($(compgen -W "${names}" -- "${cur}"))
+        return
+    fi
+
+    if [[ "$COMP_CWORD" -eq 2 && ("${COMP_WORDS[1]}" == "list" || "${COMP_WORDS[1]}" == "ls") ]]; then
+        local list_options="--installed --not-installed --env --help"
+        COMPREPLY=($(compgen -W "${list_options}" -- "${cur}"))
+        return
+    fi
+
+    if [[ "$COMP_CWORD" -eq 2 && "${COMP_WORDS[1]}" == "version" ]]; then
+        local version_options="patch minor major --back --help"
+        COMPREPLY=($(compgen -W "${version_options}" -- "${cur}"))
+        return
+    fi
+
+    if [[ "$COMP_CWORD" -eq 3 && "$prev" == "--back" ]]; then
+        local version_options="patch minor major"
+        COMPREPLY=($(compgen -W "${version_options}" -- "${cur}"))
+        return
+    fi
+
+    if [[ "$COMP_CWORD" -eq 2 && "${COMP_WORDS[1]}" == "build" ]]; then
+        local build_options="--env --help"
+        COMPREPLY=($(compgen -W "${build_options}" -- "${cur}"))
+        return
+    fi
+
+    if [[ "$COMP_CWORD" -eq 2 && "${COMP_WORDS[1]}" == "push" ]]; then
+        local push_options="--registry --env --user --pass --url --help"
+        COMPREPLY=($(compgen -W "${push_options}" -- "${cur}"))
+        return
+    fi
+
+    local commands="init reinit registry . add list version build push install uninstall remove shell exec update"
     local registry_cmds="list new remove"
-    local opts="--from --to --commit --branch --version --env --registry"
+
+    local providers="github gitlab bitbucket pypi local"
+
+    local feature_opts=(--branch --commit --protocol)
+
+    local initial_install_opts=(--from --no-deps)
+
+    local raw_action="${words[1]}"
+    local action="$raw_action"
+    local is_install=false
+
+    _has_item() {
+        local needle="$1"; shift
+        local x
+        for x in "$@"; do
+            [[ "$x" == "$needle" ]] && return 0
+        done
+        return 1
+    }
+
+    _py_find_pyproject() {
+        local dir="$PWD"
+        while [[ "$dir" != "/" ]]; do
+            if [[ -f "$dir/pyproject.toml" ]]; then
+                echo "$dir/pyproject.toml"
+                return 0
+            fi
+            dir="$(dirname "$dir")"
+        done
+        return 1
+    }
+
+    if [[ "$prev" == "py" ]]; then
+        COMPREPLY=($(compgen -W "${commands}" -- "${cur}"))
+        return
+    fi
+
+    if [[ "$action" == "registry" ]]; then
+        if [[ $cword -eq 2 ]]; then
+            COMPREPLY=($(compgen -W "${registry_cmds}" -- "${cur}"))
+            return
+        fi
+    fi
+
+    if $is_install; then
+        local has_from=false
+        local from_provider=""
+        local used_feature=()
+
+        local i=2
+        while [[ $i -lt $COMP_CWORD ]]; do
+            local w="${words[$i]}"
+            case "$w" in
+                -f|--from)
+                    has_from=true
+                    if [[ $((i+1)) -lt $COMP_CWORD ]]; then
+                        local nxt="${words[$((i+1))]}"
+                        if [[ "$nxt" != -* ]]; then
+                            from_provider="$nxt"
+                        fi
+                    fi
+                    ;;
+                --branch|--commit|--protocol)
+                    if [[ $((i+1)) -lt $COMP_CWORD ]]; then
+                        local val="${words[$((i+1))]}"
+                        if [[ "$val" != -* ]]; then
+                            used_feature+=("$w")
+                        fi
+                    fi
+                    ;;
+            esac
+            i=$((i+1))
+        done
+
+        if [[ "$prev" == "-f" || "$prev" == "--from" ]]; then
+            COMPREPLY=($(compgen -W "${providers}" -- "${cur}"))
+            return
+        fi
+
+        if [[ "$prev" == "--protocol" ]]; then
+            COMPREPLY=($(compgen -W "https ssh" -- "${cur}"))
+            return
+        fi
+
+        if _has_item "$prev" "${feature_opts[@]}"; then
+            COMPREPLY=()
+            return
+        fi
+
+        if [[ "$cur" == -* ]]; then
+            if $has_from && [[ -n "$from_provider" ]]; then
+                local remain=()
+                local opt
+                for opt in "${feature_opts[@]}"; do
+                    _has_item "$opt" "${used_feature[@]}" || remain+=("$opt")
+                done
+                if [[ ${#remain[@]} -eq 0 ]]; then
+                    remain=("${feature_opts[@]}")
+                fi
+                COMPREPLY=($(compgen -W "${remain[*]}" -- "${cur}"))
+                return
+            else
+                COMPREPLY=($(compgen -W "${initial_install_opts[*]}" -- "${cur}"))
+                return
+            fi
+        fi
+
+        if $has_from && [[ -n "$from_provider" ]]; then
+            local remain=()
+            local opt
+            for opt in "${feature_opts[@]}"; do
+                _has_item "$opt" "${used_feature[@]}" || remain+=("$opt")
+            done
+            if [[ ${#remain[@]} -eq 0 ]]; then
+                remain=("${feature_opts[@]}")
+            fi
+            COMPREPLY=($(compgen -W "${remain[*]}" -- "${cur}"))
+            return
+        else
+            COMPREPLY=($(compgen -W "${initial_install_opts[*]}" -- "${cur}"))
+            return
+        fi
+    fi
 
     case "${prev}" in
-        py)
-            COMPREPLY=($(compgen -W "${commands}" -- "${cur}"))
-            return
-            ;;
         registry)
             COMPREPLY=($(compgen -W "${registry_cmds}" -- "${cur}"))
             return
             ;;
-        add|install|remove|exec|delete|update)
+        add|exec|delete|uninstall)
             if [[ ${cur} == -* ]]; then
+                # options for add / exec / delete / uninstall
+                local opts="--from --commit --branch --version --registry --protocol --no-deps --name"
                 COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
             else
                 COMPREPLY=($(compgen -f -- "${cur}"))
             fi
             return
             ;;
-        -f|--from|-t|--to)
-            COMPREPLY=($(compgen -W "$(ls requirements* 2>/dev/null | sed 's/requirements\.//g; s/\.txt//g')" -- "${cur}"))
+        -f|--from)
+            COMPREPLY=($(compgen -W "${providers}" -- "${cur}"))
+            return
+            ;;
+        --protocol)
+            COMPREPLY=($(compgen -W "https ssh" -- "${cur}"))
             return
             ;;
     esac
@@ -45,13 +217,63 @@ _py_completion() {
                     COMPREPLY=($(compgen -W "${registry_cmds}" -- "${cur}"))
                     return
                     ;;
-                add|install|remove|exec)
+                add|exec|uninstall)
                     COMPREPLY=($(compgen -f -- "${cur}"))
                     return
                     ;;
             esac
             ;;
     esac
+}
+
+_py_dep_names() {
+    local pyproject
+    pyproject="$(_py_find_pyproject)" || return 0
+
+    awk '
+    BEGIN { in_deps = 0 }
+    # Match the start of dependencies section
+    /^[[:space:]]*dependencies[[:space:]]*=[[:space:]]*\[/ {
+        in_deps = 1
+        # If line contains closing bracket, we are done
+        if (index($0, "]")) exit
+        next
+    }
+    # If we are in deps section and find closing bracket, exit
+    in_deps && /\]/ { exit }
+    # If we are in deps section, extract dependency names
+    in_deps && /^[[:space:]]*".*"[[:space:]]*(,)?$/ {
+        # Remove leading/trailing spaces
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+        # Remove quotes
+        gsub(/^"|"$/, "")
+        # Remove trailing comma if present
+        gsub(/,$/, "")
+        # Extract package name (before version specs)
+        gsub(/[<>=! @].*$/, "")
+        if (length($0) > 0) print $0
+    }
+    ' "$pyproject"
+}
+
+_py_installed_packages() {
+    local pyproject
+    pyproject="$(_py_find_pyproject)" || return 0
+
+    local venv_path
+    venv_path=$(dirname "$pyproject")/.venv
+
+    if [[ ! -d "$venv_path" ]]; then
+        return 0
+    fi
+
+    local site_packages="$venv_path/lib/python"*"/site-packages"
+    for site_pkg_dir in $site_packages; do
+        if [[ -d "$site_pkg_dir" ]]; then
+            ls -1 "$site_pkg_dir" 2>/dev/null | grep -E '^[a-zA-Z]' | grep -v -E '\.(dist-info|egg-info|pyc|so)$' | grep -v '^__pycache__$'
+            break
+        fi
+    done
 }
 
 complete -F _py_completion py
