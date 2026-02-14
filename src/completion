@@ -15,8 +15,19 @@ _py_completion() {
                 COMPREPLY=($(compgen -W "${names}" -- "${cur}"))
                 return
                 ;;
+            uninstall)
+                if [[ "$cur" == -* ]]; then
+                    local opts="--from --registry --to --env --path --recursive"
+                    COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
+                else
+                    local names
+                    names="$(_py_uninstall_candidates)"
+                    COMPREPLY=($(compgen -W "${names}" -- "${cur}"))
+                fi
+                return
+                ;;
         esac
-    fi
+    fi 
 
     if [[ "$COMP_CWORD" -eq 2 && "${COMP_WORDS[1]}" == "." ]]; then
         local names
@@ -275,6 +286,38 @@ _py_installed_packages() {
         fi
     done
 }
+
+_py_uninstall_candidates() {
+    local deps
+    deps="$(_py_dep_names)"
+
+    local pyproject
+    pyproject="$(_py_find_pyproject)" || {
+        printf '%s\n' "$deps"
+        return 0
+    }
+
+    local root venv_path site_packages site_pkg_dir inst=""
+    root="$(dirname "$pyproject")"
+    venv_path="$root/.venv"
+
+    if [[ -d "$venv_path" ]]; then
+        site_packages="$venv_path/lib/python"*"/site-packages"
+        for site_pkg_dir in $site_packages; do
+            if [[ -d "$site_pkg_dir" ]]; then
+                inst=$(find "$site_pkg_dir" -maxdepth 1 -type d -name "*.dist-info" 2>/dev/null \
+                    | xargs -r -n 1 basename \
+                    | sed 's/-[^-]*\.dist-info$//' \
+                    | sed 's/\.dist-info$//' \
+                    | sort -u)
+                break
+            fi
+        done
+    fi
+
+    printf '%s\n%s\n' "$deps" "$inst" | awk 'NF && !seen[$0]++'
+}
+
 
 complete -F _py_completion py
 
