@@ -1,4 +1,8 @@
 function update_() {
+    if ! inside_; then
+        return 1
+    fi
+
     local packages=()
     local env=""
     local path_file=""
@@ -46,23 +50,34 @@ function update_() {
         return 1
     fi
 
-    activate_ "$env"
+    local sitedir
+    sitedir=$(site_dir_ "$env") || {
+        error_ "Unable to determine site-packages directory for environment '$(env_ $env)'."
+        return 1
+    }
+
+    if [[ ! -d "$sitedir" ]]; then
+        error_ "No site-packages directory found for environment '$(env_ $env)'."
+        return 1
+    fi
     
     if $recursive; then
+        local req_file
         if [[ -n "$path_file" ]]; then
             if [[ -f "$path_file" && "$path_file" == *.txt ]]; then
-                pip install --upgrade -r "$path_file"
+                req_file="$path_file"
             else
                 error_ "The file '$path_file' does not exist or is not a .txt file."
+                return 1
             fi
         else
-            local req_file=$(req_ "$env")
-            if [[ -f "$req_file" ]]; then
-                pip install --upgrade -r "$req_file"
-            else
+            req_file=$(req_ "$env")
+            if [[ ! -f "$req_file" ]]; then
                 error_ "Requirements file for environment '$env' not found."
+                return 1
             fi
         fi
+        python3 -m pip install --target "$sitedir" --upgrade -r "$req_file"
     else
         local root
         root=$(find_ root)
@@ -92,8 +107,8 @@ function update_() {
                     gsub(/^git\+/, "", pkg_name)
                     
                     if (pkg_name == pkg) {
-                        # Check if this is a git dependency (contains @ or git+)
-                        if (line ~ /[ @]/ && line ~ /git\+/) {
+                        # Check if this is a git dependency (contains git+)
+                        if (line ~ /git\+/) {
                             print line
                             exit
                         }
@@ -108,25 +123,23 @@ function update_() {
             
             if [[ "$is_git_dep" == true ]]; then
                 log_ "Updating git dependency '$pkg'..."
-                pip uninstall -y "$pkg" >/dev/null 2>&1
                 local clean_git_spec
-                clean_git_spec=$(echo "$git_spec" | sed 's/"$//' | sed 's/^"//')
-                pip install --no-deps "$clean_git_spec"
+                clean_git_spec=$(echo "$git_spec" | sed 's/^"//; s/"$//')
+                python3 -m pip install --target "$sitedir" --no-deps --force-reinstall "$clean_git_spec"
                 if [[ $? -eq 0 ]]; then
-                    done_ "Git dependency '$pkg' has been updated."
+                    done_ "Git dependency '$pkg' has been updated in '$sitedir'."
                 else
                     error_ "Failed to update git dependency '$pkg'."
                 fi
             else
-                pip install --upgrade "$pkg"
+                python3 -m pip install --target "$sitedir" --upgrade "$pkg"
                 if [[ $? -eq 0 ]]; then
-                    done_ "Package '$pkg' has been updated."
+                    done_ "Package '$pkg' has been updated in '$sitedir'."
                 else
                     error_ "Failed to update package '$pkg'."
                 fi
             fi
         done
     fi
-    deactivate
 }
 

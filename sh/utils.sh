@@ -73,23 +73,29 @@ function env_(){
     fi
 }
 
-function venv_(){
+function env_dir_() {
     local env="$1"
-    local root=$(find_ root)
-    if [[ -n "$root" ]]; then
-        echo "${root}/.venv${env:+.${env}}"
-        return 0
-    else
-        return 1
-    fi
+    local root
+    root=$(find_ root) || return 1
+    echo "${root}/.venv${env:+.${env}}"
+}
+
+function site_dir_() {
+    local env="$1"
+    local envdir
+    envdir=$(env_dir_ "$env") || return 1
+    echo "${envdir}/site-packages"
+}
+
+function venv_() {
+    env_dir_ "$1"
 }
 
 function has_venv_() {
     local env="$1"
-    if [[ -d "$(venv_ $env)" ]]; then
-            return 0
-    fi 
-        return 1
+    local sdir
+    sdir=$(site_dir_ "$env") || return 1
+    [[ -d "$sdir" ]]
 }
 
 function has_registry_() {
@@ -117,7 +123,6 @@ function has_registry_() {
     error_ "Registry '$registry_name' not found in configuration files."
     return 1
 }
-
 
 function is_file_() {
     local path="$1"

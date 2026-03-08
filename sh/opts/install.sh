@@ -114,31 +114,22 @@ function install_() {
         return 1
     fi
 
-    activate_ "$env"
+    local sitedir
+    sitedir=$(site_dir_ "$env") || {
+        error_ "Unable to determine site-packages directory for environment '$(env_ $env)'."
+        return 1
+    }
 
-    # Editable install of current project
+    # Editable install of current project ('.') is no longer needed:
+    # init_ already symlinks the project into site-packages.
     if [[ ${#packages[@]} -eq 1 && "${packages[0]}" == "." ]]; then
-        root=$(find_ root)
-        log_ "Installing the project in editable mode in env '$(env_ $env)'..."
-        cd "$root"
-        local pip_args=()
-        $no_deps && pip_args+=(--no-deps)
-        pip install -e . "${pip_args[@]}" > /dev/null 2>&1
-        local status=$?
-        cd - > /dev/null 2>&1
-        deactivate
-        if [[ $status -ne 0 ]]; then
-            error_ "Could not install the project in editable mode."
-            return 1
-        fi
-        done_ "Project installed in editable mode."
+        info_ "Project is already linked into site-packages by 'py init'; nothing to install."
         return 0
     fi
 
     # Interactive selection if no packages were given and not recursive
     if ! $recursive && [[ -z "$path_file" ]] && [[ ${#packages[@]} -eq 0 ]]; then
         if ! command -v fzf >/dev/null 2>&1; then
-            deactivate
             error_ "'fzf' is required for interactive selection. Please install fzf."
             return 1
         fi
@@ -181,7 +172,6 @@ function install_() {
                         did_select=true
                     else
                         info_ "No packages selected."
-                        deactivate
                         return 0
                     fi
                 fi
@@ -217,7 +207,6 @@ function install_() {
                 read -r -p "> " typed_pkgs
                 if [[ -z "$typed_pkgs" ]]; then
                     info_ "No packages selected."
-                    deactivate
                     return 0
                 fi
                 read -r -a packages <<< "$typed_pkgs"
@@ -226,7 +215,6 @@ function install_() {
                 selected=$(printf "%s\n" "$candidates" | fzf --multi)
                 if [[ -z "$selected" ]]; then
                     info_ "No packages selected."
-                    deactivate
                     return 0
                 fi
                 mapfile -t packages <<< "$selected"
@@ -239,27 +227,34 @@ function install_() {
             if [[ -f "$path_file" && "$path_file" == *.txt ]]; then
                 local pip_args=()
                 $no_deps && pip_args+=(--no-deps)
-                pip install "${pip_args[@]}" -r "$path_file"
+                python3 -m pip install --target "$sitedir" "${pip_args[@]}" -r "$path_file"
             else
                 error_ "The file '$path_file' does not exist or is not a .txt file."
             fi
         else
-            local req_file=$(req_ "$env")
+            local req_file
+            req_file=$(req_ "$env")
             if [[ -f "$req_file" ]]; then
                 local pip_args=()
                 $no_deps && pip_args+=(--no-deps)
-                pip install "${pip_args[@]}" -r "$req_file"
+                python3 -m pip install --target "$sitedir" "${pip_args[@]}" -r "$req_file"
             else
                 error_ "Requirements file for environment '$env' not found."
             fi
         fi
     else
         for pkg in "${packages[@]}"; do
-            local slashes=$(grep -o '/' <<< "$pkg" | wc -l)
+            local slashes
+            slashes=$(grep -o '/' <<< "$pkg" | wc -l)
             if [[ "$slashes" -eq 1 ]] && 
                [[ "$pkg" != "/"* ]] && 
                [[ "$pkg" != *"/" ]]; then
-                pkg_info_ $pkg
+                # owner/repo style -> git URL handling
+                pkg_info_ "$pkg"
+                local repo="$repo"
+                local branch="$branch"
+                local commit="$commit"
+
                 if [[ "$registry" == "github" ]]; then
                     local base=""
                     if [[ "$protocol" == "ssh" ]]; then
@@ -295,14 +290,13 @@ function install_() {
             fi
             local pip_args=()
             $no_deps && pip_args+=(--no-deps)
-            pip install "${pip_args[@]}" "$pkg"
+            python3 -m pip install --target "$sitedir" "${pip_args[@]}" "$pkg"
             if [[ $? -eq 0 ]]; then
-                done_ "Package '$pkg' has been installed."
+                done_ "Package '$pkg' has been installed into '$sitedir'."
             else
                 error_ "Failed to install package '$pkg'."
             fi
         done
     fi
-    deactivate
 }
 

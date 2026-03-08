@@ -47,6 +47,7 @@ py() {
     )
 
     if [[ -z "$1" ]]; then
+        source ${BASH_SOURCE%/*}/sh/help.sh
         help_
         return 0
     fi
