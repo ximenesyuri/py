@@ -37,10 +37,13 @@ function exec_() {
                 echo "Usage: py exec [--env ENV] <command ...>"
                 echo "       py exec [--from ENV] <command ...>"
                 echo
+                echo "Runs the given command with PYTHONPATH pointing at the project and env."
+                echo
                 echo "Examples:"
                 echo "  py exec main.py arg1 arg2"
                 echo "  py exec --env dev python -m pytest"
-                echo "  py exec --from dev some command with args"
+                echo "  py exec --from dev python -c 'import os'"
+                echo "  py exec bash -lc 'echo \$PYTHONPATH'"
                 return 0
                 ;;
             *)
@@ -73,8 +76,7 @@ function exec_() {
         PYTHONPATH="$pp" python3 "${args[@]}"
         return $?
     fi
-    printf -v cmd_str '%q ' "${args[@]}"
 
-    PYTHONPATH="$pp" eval "$cmd_str"
+    PYTHONPATH="$pp" "${args[@]}"
 }
 

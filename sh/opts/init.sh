@@ -20,7 +20,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {"name" = "Your Name", "email" = "you@email.com"},
+    {"name" = "Your Name", "email" = "your@email.com"},
 ]
 dependencies = [
 ]
@@ -74,6 +74,26 @@ EOF
     else
         mkdir -p "$sitedir"
         done_ "Created environment directory at '$envdir' (site-packages: '$sitedir')."
+    fi
+
+    local venv_bin="$envdir/bin"
+    if [[ ! -d "$venv_bin" ]]; then
+        mkdir -p "$venv_bin"
+        done_ "Created '$venv_bin' directory."
+    fi
+
+    local system_python=$(which python3)
+    if [[ -n "$system_python" && -x "$system_python" ]]; then
+        if [[ ! -e "$venv_bin/python" ]]; then
+            ln -sf "$system_python" "$venv_bin/python"
+            done_ "Created Python executable symlink at '$venv_bin/python'."
+        fi
+        if [[ ! -e "$venv_bin/python3" ]]; then
+            ln -sf "$system_python" "$venv_bin/python3"
+            done_ "Created Python3 executable symlink at '$venv_bin/python3'."
+        fi
+    else
+        warn_ "Could not find system Python executable for symlinking."
     fi
 
     local gitignore_path="$root/.gitignore"

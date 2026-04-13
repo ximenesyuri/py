@@ -77,7 +77,7 @@ function update_() {
                 return 1
             fi
         fi
-        python3 -m pip install --target "$sitedir" --upgrade -r "$req_file"
+        python3 -m pip install --upgrade --target "$sitedir" --upgrade -r "$req_file"
     else
         local root
         root=$(find_ root)
@@ -125,14 +125,14 @@ function update_() {
                 log_ "Updating git dependency '$pkg'..."
                 local clean_git_spec
                 clean_git_spec=$(echo "$git_spec" | sed 's/^"//; s/"$//')
-                python3 -m pip install --target "$sitedir" --no-deps --force-reinstall "$clean_git_spec"
+                python3 -m pip install --upgrade --target "$sitedir" --no-deps --force-reinstall "$clean_git_spec"
                 if [[ $? -eq 0 ]]; then
                     done_ "Git dependency '$pkg' has been updated in '$sitedir'."
                 else
                     error_ "Failed to update git dependency '$pkg'."
                 fi
             else
-                python3 -m pip install --target "$sitedir" --upgrade "$pkg"
+                python3 -m pip install --upgrade --target "$sitedir" --upgrade "$pkg"
                 if [[ $? -eq 0 ]]; then
                     done_ "Package '$pkg' has been updated in '$sitedir'."
                 else

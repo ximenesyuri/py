@@ -120,14 +120,11 @@ function install_() {
         return 1
     }
 
-    # Editable install of current project ('.') is no longer needed:
-    # init_ already symlinks the project into site-packages.
     if [[ ${#packages[@]} -eq 1 && "${packages[0]}" == "." ]]; then
         info_ "Project is already linked into site-packages by 'py init'; nothing to install."
         return 0
     fi
 
-    # Interactive selection if no packages were given and not recursive
     if ! $recursive && [[ -z "$path_file" ]] && [[ ${#packages[@]} -eq 0 ]]; then
         if ! command -v fzf >/dev/null 2>&1; then
             error_ "'fzf' is required for interactive selection. Please install fzf."
@@ -136,7 +133,6 @@ function install_() {
 
         local did_select=false
 
-        # Prefer querying PyPI if no registry or pypi
         if [[ -z "$registry" || "$registry" == "pypi" ]]; then
             if command -v curl >/dev/null 2>&1; then
                 local cache_dir cache_file tmp
@@ -180,7 +176,6 @@ function install_() {
             fi
         fi
 
-        # Fallback to local pip directory or manual input if PyPI fetch didn't run or failed
         if ! $did_select; then
             local root pip_dir candidates
             root=$(find_ root)
@@ -227,7 +222,7 @@ function install_() {
             if [[ -f "$path_file" && "$path_file" == *.txt ]]; then
                 local pip_args=()
                 $no_deps && pip_args+=(--no-deps)
-                python3 -m pip install --target "$sitedir" "${pip_args[@]}" -r "$path_file"
+                python3 -m pip install --upgrade --target "$sitedir" "${pip_args[@]}" -r "$path_file"
             else
                 error_ "The file '$path_file' does not exist or is not a .txt file."
             fi
@@ -237,7 +232,7 @@ function install_() {
             if [[ -f "$req_file" ]]; then
                 local pip_args=()
                 $no_deps && pip_args+=(--no-deps)
-                python3 -m pip install --target "$sitedir" "${pip_args[@]}" -r "$req_file"
+                python3 -m pip install --upgrade --target "$sitedir" "${pip_args[@]}" -r "$req_file"
             else
                 error_ "Requirements file for environment '$env' not found."
             fi
@@ -249,7 +244,6 @@ function install_() {
             if [[ "$slashes" -eq 1 ]] && 
                [[ "$pkg" != "/"* ]] && 
                [[ "$pkg" != *"/" ]]; then
-                # owner/repo style -> git URL handling
                 pkg_info_ "$pkg"
                 local repo="$repo"
                 local branch="$branch"
@@ -268,7 +262,6 @@ function install_() {
                         pkg="${base}@${branch}"
                     fi
                 elif [[ -z "$registry" ]]; then
-                    # Default to GitHub over HTTPS if user gave owner/repo without --from
                     if is_commit_ "$commit"; then
                         pkg="git+https://github.com/$repo.git@$commit#$branch"
                     else
@@ -290,7 +283,7 @@ function install_() {
             fi
             local pip_args=()
             $no_deps && pip_args+=(--no-deps)
-            python3 -m pip install --target "$sitedir" "${pip_args[@]}" "$pkg"
+            python3 -m pip install --upgrade --target "$sitedir" "${pip_args[@]}" "$pkg"
             if [[ $? -eq 0 ]]; then
                 done_ "Package '$pkg' has been installed into '$sitedir'."
             else
