@@ -1,3 +1,7 @@
+# ARCHIVED
+
+The repository has been archived since it is now a tool for the [omnishell](https://github.com/omnishell) Bash framework.
+
 # About
 
 `py` is a simple script made in pure `bash` designed to work as a Python project manager, being a lightweight a minimalist replacement for `poetry` and `uv`, `pyenv`, etc.
